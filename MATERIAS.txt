@@ -1,0 +1,85 @@
+Administración y respuesta a incidentes
+Álgebra Lineal
+Aprendizaje Automático
+Aprendizaje Automático Avanzado
+Arte digital para videojuegos
+Arquitectura de Computadoras
+Algoritmos
+Arquitectura de Software I
+Arquitectura de Software II
+Base de Datos
+Cálculo
+Ciberdefensa y ciberinteligencia
+Cibercrimen y análisis forense
+Ciberseguridad defensiva
+Ciberseguridad en la nube
+Ciberseguridad ofensiva
+Ciencias Aplicadas a Diseño
+Computabilidad y Complejidad
+Computacion Grafica
+Contruccion de Interfaces
+Criptografía
+Cultura Y Alfabetizacion Digital
+Desarrollo de Aplicaciones
+Desarrollo Seguro
+Desarrollo, seguridad y operaciones
+Diseño de Interfaces
+Diseño Ludico
+Diseño y animaciones 3D
+Elementos de Ingenieria de Software
+Entornos Virtuales
+Estructura de Datos
+Estrategias de Persistencia
+Fundamentos de ciencias de datos
+Fundamentos de Redes Neuronales
+Formalización de Lenguajes y Generación de Código
+Gestión de Proyectos de Desarrollo de Software
+Gestión integral de seguridad
+Ingenieria de Software I
+Ingeniería de Software II
+Inglés
+Introduccion a la logica y problemas Computacionales
+Introducción a la inteligencia artificial
+Introducción a los sistemas de comunicación y seguridad
+Introduccion a motores de VJ
+Introduccion a Videojuegos
+Laboratorio de Sistemas Operativos y Redes
+Lenguajes Informaticos
+Lenguajes Informaticos I
+Lenguajes Informaticos II
+Lenguajes Informaticos III
+Lenguajes Informaticos IV
+Matematica para Informatica I
+Matematica para Informatica II
+Matematica para Informatica III
+Matematica para Informatica IV
+Operaciones
+Organización de Computadoras I
+Organización de Computadoras II
+Planificacion de Negocios
+Probabilidad y Estadística
+Procesamiento de Imágenes y Visión por Computadora
+Programacion con Objetos I
+Programacion con Objetos II
+Programacion de Videojuegos I
+Programacion de videojuegos II
+Programacion de Videojuegos III
+Programación Estructurada
+Redes avanzadas
+Redes de Computadoras
+Robotica
+Seguridad de la Información
+Simulacion I
+Simulacion II
+Simulacion III
+Sistemas Distribuidos y Tiempo Real
+Sistemas y organizaciones
+Sistemas Operativos
+Taller de Diseño Conceptual
+Taller de intérpretes de comandos
+Taller de Programacion I
+Taller de programacion
+Taller de Programación II
+Taller de Programación III
+Tecnologia y Sociedad
+Tecnologias Interactivas
