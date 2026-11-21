@@ -1,0 +1,12 @@
+[CARRERAS]
+Informatica
+Videojuegos
+Ciberseguridad
+IA
+
+[ANIOS]
+1er Año
+2do Año
+3er Año
+4to Año
+5to Año

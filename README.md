@@ -62,6 +62,10 @@ Todos los comandos se ejecutan dentro de un servidor usando barra (/) y requiere
   Permiso requerido: Gestionar canales (manage_channels)
   Descripción: Solicita confirmación interactiva para desfijar y eliminar los avisos enviados por el bot en apuntes-<materia>, junto con las notificaciones del sistema de mensajes fijados.
 
+- /opinar_comision
+  Permiso requerido: Ninguno (disponible para todos los usuarios del servidor)
+  Descripción: Abre un selector efímero de etiquetas obligatorias (Carrera y Año desde TAGS_OPINIONES.txt) y un formulario para publicar una opinión anónima sobre una materia, comisión y docente en el canal de Foro configurado (agrupando comentarios si la materia ya tiene un post), registrando la autoría real únicamente en el canal privado de moderación. Contiene un aviso informando del respeto requerido aunque la publicacion sea anonima. 
+
 
 FLUJO DE TRABAJO RECOMENDADO
 ============================

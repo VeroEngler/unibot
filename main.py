@@ -15,6 +15,7 @@ from services import (
     send_notes_notices,
     delete_notes_notices,
     update_metrics_board,
+    OpinionTagsView,
 )
 
 from ui import ask_confirmation_and_run, send_followup_chunks
@@ -232,6 +233,30 @@ async def update_metrics_slash(interaction: discord.Interaction) -> None:
             bot_user=bot.user,
         ),
         forbidden_message="No tengo permisos suficientes (**Gestionar canales** y **Gestionar mensajes**).",
+    )
+
+
+# ------------- Anonymous Course Reviews -------------
+
+@bot.tree.command(
+    name="opinar_comision",
+    description="Publica una opinión anónima sobre una materia o docente.",
+)
+@app_commands.guild_only()
+async def opinion_comision_slash(interaction: discord.Interaction) -> None:
+    try:
+        view = OpinionTagsView(author_id=interaction.user.id)
+    except (FileNotFoundError, ValueError) as exc:
+        await interaction.response.send_message(
+            f"Error de configuración: {exc}. Avisá a moderación.",
+            ephemeral=True,
+        )
+        return
+
+    await interaction.response.send_message(
+        content="Seleccioná las etiquetas de la materia para continuar:",
+        view=view,
+        ephemeral=True,
     )
 
 
