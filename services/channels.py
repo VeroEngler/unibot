@@ -59,6 +59,9 @@ def build_notes_overwrites(
     return overwrites
 
 
+# Create or update categories and text channels for each subject
+
+
 async def create_subject_channels(
     guild: discord.Guild,
     subjects_file: str | Path = DEFAULT_SUBJECTS_PATH,

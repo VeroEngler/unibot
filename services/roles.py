@@ -6,6 +6,8 @@ from .utils import DEFAULT_SUBJECTS_PATH, load_subjects, normalize_text
 
 RATE_LIMIT_DELAY_SECONDS: float = 0.5
 
+# Create roles matching the subjects in MATERIAS.txt
+
 
 async def create_subject_roles(
     guild: discord.Guild,
@@ -51,6 +53,8 @@ async def create_subject_roles(
         summary.append(f"**Errores ({len(errors)}):** {', '.join(errors)}")
 
     return "\n".join(summary) or "No se procesaron roles."
+
+# Delete roles matching the subjects in MATERIAS.txt
 
 
 async def delete_subject_roles(

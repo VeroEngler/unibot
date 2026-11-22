@@ -2,6 +2,7 @@ from pathlib import Path
 import re
 import unicodedata
 
+
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_SUBJECTS_PATH = ROOT_DIR / "MATERIAS.txt"
 DEFAULT_OPINION_TAGS_PATH = ROOT_DIR / "TAGS_OPINIONS.txt"
@@ -44,6 +45,8 @@ def load_subjects(file_path: str | Path = DEFAULT_SUBJECTS_PATH) -> list[str]:
 
 
 # --------- Opinions Tags ---------
+
+
 def load_opinion_tags(
     file_path: str | Path = DEFAULT_OPINION_TAGS_PATH,
 ) -> tuple[list[str], list[str]]:
