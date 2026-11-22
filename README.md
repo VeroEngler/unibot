@@ -9,7 +9,7 @@ Bot de administración automatizada para el servidor comunitario de estudiantes 
 * **Gestión masiva de roles:** Crea o elimina roles individuales para cada materia evitando duplicados.
 * **Estructura automática de canales:** Genera una categoría privada por materia con acceso exclusivo para el rol correspondiente y moderación, incluyendo:
   * `#general-<materia>`: Canal de consultas y chat con *slowmode* de 15 segundos.
-  * `#apuntes-<materia>`: Canal de solo lectura para alumnos destinado a material de estudio y resúmenes[cite: 2, 3].
+  * `#apuntes-<materia>`: Canal de solo lectura para alumnos destinado a material de estudio y resúmenes.
 * **Avisos fijados automáticos:** Publica y fija un mensaje informativo en cada canal de apuntes (evitando duplicados) y permite desfijarlos y limpiar notificaciones del sistema.
 * **Slash Commands (`/`) nativos:** Integración con `discord.app_commands`, permisos nativos de Discord y respuestas efímeras divididas automáticamente para respetar el límite de caracteres.
 * **Tablero dinámico de métricas (`#📊・metricas`):** Genera y actualiza automáticamente en tiempo real (con *cooldown* anti rate-limit) un mensaje fijado con el conteo de estudiantes inscriptos por carrera y materia.
