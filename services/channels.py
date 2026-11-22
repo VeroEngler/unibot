@@ -94,7 +94,10 @@ async def create_subject_channels(
             general_channel = await guild.create_text_channel(
                 name=general_name,
                 category=category,
-                topic=f"Consultas y chat general de {subject} (slowmode de {GENERAL_SLOWMODE_SECONDS}s).",
+                topic=(
+                    f"Consultas y chat general de {subject} "
+                    f"(slowmode de {GENERAL_SLOWMODE_SECONDS}s)."
+                ),
                 slowmode_delay=GENERAL_SLOWMODE_SECONDS,
             )
         else:
@@ -127,7 +130,8 @@ async def create_subject_channels(
     if missing_roles:
         formatted_roles = ", ".join(f"`{role}`" for role in missing_roles)
         output.append(
-            f"\nAviso — no se encontraron estos roles exactos (ejecuta `/crear_roles_materias` primero): {formatted_roles}"
+            "\nAviso — no se encontraron estos roles exactos "
+            f"(ejecuta `/crear_roles_materias` primero): {formatted_roles}"
         )
 
     return "\n".join(output)
@@ -147,9 +151,7 @@ async def delete_subject_channels(
 
     target_names = {normalize_text(subject) for subject in subjects}
     categories_to_delete = [
-        category
-        for category in guild.categories
-        if normalize_text(category.name) in target_names
+        category for category in guild.categories if normalize_text(category.name) in target_names
     ]
 
     if not categories_to_delete:
@@ -176,7 +178,9 @@ async def delete_subject_channels(
                 category_failed = True
 
         if category_failed:
-            errors.append(f"Categoría **{category.name}** conservada porque quedaron canales sin borrar")
+            errors.append(
+                f"Categoría **{category.name}** conservada porque quedaron canales sin borrar"
+            )
             continue
 
         try:
@@ -191,7 +195,8 @@ async def delete_subject_channels(
     summary: list[str] = []
     if deleted_categories:
         summary.append(
-            f"**Categorías eliminadas ({len(deleted_categories)}):** {', '.join(deleted_categories)}"
+            f"**Categorías eliminadas ({len(deleted_categories)}):** "
+            f"{', '.join(deleted_categories)}"
         )
     if deleted_channels_count:
         summary.append(f"**Canales internos eliminados:** {deleted_channels_count}")

@@ -9,13 +9,16 @@ DEFAULT_DELETE_HISTORY_LIMIT: int = 50
 
 NOTES_NOTICE_MESSAGE: str = (
     "**Apuntes y material de la materia**\n\n"
-    "Acá guardamos apuntes, resúmenes y guías para tener todo a mano sin que se pierda en el chat.\n\n"
-    f"¿Tenés algo para sumar? Mandalo al canal de consultas de la materia arrobando a <@&{RED_UNAHUR_ROLE_ID}> "
-    "y lo subimos acá. Solo contanos **de qué tema es** y adjuntá el archivo o enlace."
+    "Acá guardamos apuntes, resúmenes y guías para tener todo"
+    " a mano sin que se pierda en el chat.\n\n"
+    "¿Tenés algo para sumar? Mandalo al canal de consultas de la materia "
+    f"arrobando a <@&{RED_UNAHUR_ROLE_ID}> y lo subimos acá.  "
+    "Solo contanos **de qué tema es** y adjuntá el archivo o enlace."
 )
 
 
 # ------------ Helper Functions -------------
+
 
 # Locate the notes channel inside the subject category or across the guild.
 def _find_notes_channel(guild: discord.Guild, subject: str) -> discord.TextChannel | None:
@@ -30,7 +33,10 @@ def _find_notes_channel(guild: discord.Guild, subject: str) -> discord.TextChann
 
     return discord.utils.get(guild.text_channels, name=channel_name)
 
+
 # Check if the notice message was already sent in the channel
+
+
 async def _is_notice_already_sent(
     channel: discord.TextChannel,
     bot_user: discord.ClientUser | None,
@@ -92,14 +98,18 @@ async def send_notes_notices(
     if sent_channels:
         lines.append(f"Avisos enviados ({len(sent_channels)}): " + ", ".join(sent_channels))
     if skipped_channels:
-        lines.append(f"Ya tenían el aviso ({len(skipped_channels)}): " + ", ".join(skipped_channels))
+        lines.append(
+            f"Ya tenían el aviso ({len(skipped_channels)}): " + ", ".join(skipped_channels)
+        )
     if forbidden_channels:
         lines.append(
             f"Sin permisos para enviar o fijar ({len(forbidden_channels)}): "
             + ", ".join(forbidden_channels)
         )
     if missing_channels:
-        lines.append(f"Canales no encontrados ({len(missing_channels)}): " + ", ".join(missing_channels))
+        lines.append(
+            f"Canales no encontrados ({len(missing_channels)}): " + ", ".join(missing_channels)
+        )
 
     return "\n".join(lines) if lines else "No se realizó ninguna acción."
 
@@ -156,14 +166,17 @@ async def delete_notes_notices(
 
         if deleted_notices > 0 or deleted_pin_notifications > 0:
             cleaned_channels.append(
-                f"{channel.mention} ({deleted_notices} aviso/s, {deleted_pin_notifications} notif. pin)"
+                f"{channel.mention} ({deleted_notices} aviso/s, "
+                f"{deleted_pin_notifications} notif. pin)"
             )
         else:
             untouched_channels.append(channel.mention)
 
     lines: list[str] = []
     if cleaned_channels:
-        lines.append(f"Limpieza realizada ({len(cleaned_channels)}): " + ", ".join(cleaned_channels))
+        lines.append(
+            f"Limpieza realizada ({len(cleaned_channels)}): " + ", ".join(cleaned_channels)
+        )
     if untouched_channels:
         lines.append(
             f"Sin avisos ni notificaciones pendientes ({len(untouched_channels)}): "
@@ -175,6 +188,8 @@ async def delete_notes_notices(
             + ", ".join(forbidden_channels)
         )
     if missing_channels:
-        lines.append(f"Canales no encontrados ({len(missing_channels)}): " + ", ".join(missing_channels))
+        lines.append(
+            f"Canales no encontrados ({len(missing_channels)}): " + ", ".join(missing_channels)
+        )
 
     return "\n".join(lines) if lines else "No se realizó ninguna acción."

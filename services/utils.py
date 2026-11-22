@@ -33,7 +33,7 @@ def load_subjects(file_path: str | Path = DEFAULT_SUBJECTS_PATH) -> list[str]:
 
     for line in path.read_text(encoding="utf-8").splitlines():
         name = line.strip()
-        if not name:
+        if not name or name.startswith("#"):
             continue
         key = normalize_text(name)
         if key not in seen:

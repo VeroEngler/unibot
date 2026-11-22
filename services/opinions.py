@@ -9,9 +9,10 @@ from .utils import (
 )
 
 MENSAJE_CONFIRMACION_ANONIMA: str = (
-    "⚠️ **Antes de publicar, confirmá las normas de convivencia:**\n\n"
-    "> *\"Entiendo que no quiero compartirlo públicamente, pero mantengo el respeto en mi post. "
-    "De otra manera entiendo que será borrado y puedo recibir baneo por mal comportamiento en la comunidad.\"*"
+    "⚠️ **Recordatorio antes de publicar:**\n"
+    "Tu opinión se publicará de forma anónima, pero **el respeto es obligatorio** "
+    "Solo críticas constructivas, sin agresiones ni ataques personales. "
+    "Cualquier post o mensaje que rompa las reglas será eliminado"
 )
 
 
@@ -118,19 +119,16 @@ class OpinionConfirmView(discord.ui.View):
             normalize_text(self.anio_tag_name),
         }
         applied_tags = [
-            tag for tag in public_channel.available_tags
+            tag
+            for tag in public_channel.available_tags
             if normalize_text(tag.name) in selected_keys
         ]
 
         mensaje_publico = (
-            f"{self.comision_txt}\n\n"
-            f"{self.profesor_txt}\n\n"
-            f"{self.opinion_txt}"
+            f"{self.comision_txt}\n\n" f"{self.profesor_txt}\n\n" f"{self.opinion_txt}"
         )
 
-        existing_thread = await _find_existing_subject_thread(
-            public_channel, self.titulo_materia
-        )
+        existing_thread = await _find_existing_subject_thread(public_channel, self.titulo_materia)
 
         if existing_thread is not None:
             if existing_thread.archived:
@@ -164,7 +162,10 @@ class OpinionConfirmView(discord.ui.View):
             )
             log_embed.add_field(
                 name="Autor real",
-                value=f"{interaction.user.mention} (`{interaction.user}` | ID: `{interaction.user.id}`)",
+                value=(
+                    f"{interaction.user.mention} "
+                    f"(`{interaction.user}` | ID: `{interaction.user.id}`)"
+                ),
                 inline=False,
             )
             log_embed.add_field(
@@ -296,7 +297,8 @@ class OpinionTagsView(discord.ui.View):
         carreras, anios = load_opinion_tags(tags_file)
         if not carreras or not anios:
             raise ValueError(
-                "El archivo `TAGS_OPINIONES.txt` debe tener al menos una opción en `[CARRERAS]` y `[ANIOS]`."
+                "El archivo `TAGS_OPINIONES.txt` debe tener al"
+                " menos una opción en `[CARRERAS]` y `[ANIOS]`."
             )
 
         self.carrera_select.options = [

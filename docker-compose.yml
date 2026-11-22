@@ -1,0 +1,16 @@
+services:
+  unibot:
+    build: .
+    container_name: unibot-prod
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./MATERIAS.txt:/app/MATERIAS.txt:ro
+      - ./TAGS_OPINIONES.txt:/app/TAGS_OPINIONES.txt:ro
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        

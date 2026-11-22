@@ -6,15 +6,17 @@ DISCORD_MESSAGE_CHUNK_SIZE: int = 1900
 # ------------ Helper Functions -------------
 
 # Split long responses into Discord-safe character chunks
+
+
 async def send_followup_chunks(
     interaction: discord.Interaction,
     text: str,
     ephemeral: bool = True,
 ) -> None:
-    """Split long responses to comply with Discord's 2000-character limit."""
+    # Split long responses to comply with Discord's 2000-character limit.
     output = text if text and text.strip() else "No se realizaron cambios."
     for start in range(0, len(output), DISCORD_MESSAGE_CHUNK_SIZE):
-        chunk = output[start : start + DISCORD_MESSAGE_CHUNK_SIZE]
+        chunk = output[start:start + DISCORD_MESSAGE_CHUNK_SIZE]
         await interaction.followup.send(chunk, ephemeral=ephemeral)
 
 
@@ -22,6 +24,7 @@ async def send_followup_chunks(
 
 
 # ------------- Confirmation View -------------
+
 
 class ConfirmActionView(discord.ui.View):
     """Interactive confirmation view with Confirm and Cancel buttons."""
@@ -109,9 +112,12 @@ class ConfirmActionView(discord.ui.View):
             except discord.HTTPException:
                 pass
 
+
 # ------------- Confirmation Entrypoint -------------
 
 # Validate guild context and display the confirmation prompt
+
+
 async def ask_confirmation_and_run(
     interaction: discord.Interaction,
     prompt_message: str,

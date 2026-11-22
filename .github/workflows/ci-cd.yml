@@ -1,0 +1,52 @@
+name: CI/CD Unibot
+
+# This workflow runs linting, unit tests, and deploys the bot to the production server on push events to the main branch.
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install flake8 pytest
+
+      - name: Lint (PEP 8)
+        run: flake8 . --exclude=.venv,venv --max-line-length=100
+
+      - name: Run unit tests
+        run: pytest tests/ -v
+
+
+# Deploy to production server only on main branch push events
+
+#  deploy:
+#    needs: lint-and-test
+#    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Deploy via SSH
+#        uses: appleboy/ssh-action@v1.0.3
+#        with:
+#          host: ${{ secrets.DEPLOY_HOST }}
+#          username: ${{ secrets.DEPLOY_USER }}
+#          key: ${{ secrets.DEPLOY_SSH_KEY }}
+#          script: |
+#            cd ~/unibot
+#            git pull origin main
+#            docker compose up -d --build
+#            docker image prune -f

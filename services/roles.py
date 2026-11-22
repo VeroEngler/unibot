@@ -64,9 +64,7 @@ async def delete_subject_roles(
         return "El archivo MATERIAS.txt está vacío."
 
     target_names = {normalize_text(subject) for subject in subjects}
-    roles_to_delete = [
-        role for role in guild.roles if normalize_text(role.name) in target_names
-    ]
+    roles_to_delete = [role for role in guild.roles if normalize_text(role.name) in target_names]
 
     if not roles_to_delete:
         return "No se encontraron roles de materias para eliminar."

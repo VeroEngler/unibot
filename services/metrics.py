@@ -93,9 +93,7 @@ def _build_metrics_embed(
     else:
         for index, chunk in enumerate(subject_chunks):
             field_name = (
-                "📚 Inscriptos por Materia"
-                if index == 0
-                else "📚 Inscriptos por Materia (cont.)"
+                "📚 Inscriptos por Materia" if index == 0 else "📚 Inscriptos por Materia (cont.)"
             )
             embed.add_field(name=field_name, value=chunk, inline=False)
 
