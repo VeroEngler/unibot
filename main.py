@@ -5,7 +5,6 @@ from collections.abc import Awaitable, Callable
 
 import discord
 from discord import app_commands
-from discord.ext import commands
 
 from dotenv import load_dotenv
 
@@ -40,11 +39,12 @@ intents.guilds = True
 intents.members = True
 
 
-class UnahurBot(commands.Bot):
+class UnahurBot(discord.Client):
     """Discord bot client with automatic slash command synchronization."""
 
     def __init__(self) -> None:
-        super().__init__(command_prefix="!", intents=intents)
+        super().__init__(intents=intents)
+        self.tree = app_commands.CommandTree(self)
 
     async def setup_hook(self) -> None:
         await self.tree.sync()
