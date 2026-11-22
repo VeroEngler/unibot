@@ -29,7 +29,7 @@ jobs:
         run: flake8 . --exclude=.venv,venv --max-line-length=100
 
       - name: Run unit tests
-        run: pytest tests/ -v
+        run: python -m pytest tests/ -v
 
 
 # Deploy to production server only on main branch push events
