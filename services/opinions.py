@@ -142,7 +142,8 @@ class OpinionConfirmView(discord.ui.View):
             if len(merged_tags) > len(existing_thread.applied_tags):
                 await existing_thread.edit(applied_tags=merged_tags)
 
-            sent_msg = await existing_thread.send(content=mensaje_publico)
+            sent_msg = await existing_thread.send(content=mensaje_publico,
+                                                  allow_mentions=discord.AllowedMentions.none())
             jump_url = sent_msg.jump_url
             accion_log = "Comentario agregado a post existente"
         else:
@@ -150,6 +151,7 @@ class OpinionConfirmView(discord.ui.View):
                 name=self.titulo_materia[:100],
                 content=mensaje_publico,
                 applied_tags=applied_tags,
+                allow_mentions=discord.AllowedMentions.none()
             )
             jump_url = created.message.jump_url
             accion_log = "Nuevo post creado en el foro"
