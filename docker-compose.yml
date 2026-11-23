@@ -5,12 +5,13 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      - SYNC_COMMANDS=${SYNC_COMMANDS:-0}
     volumes:
       - ./MATERIAS.txt:/app/MATERIAS.txt:ro
-      - ./TAGS_OPINIONES.txt:/app/TAGS_OPINIONES.txt:ro
+      - ./TAGS_OPINIONS.txt:/app/TAGS_OPINIONS.txt:ro
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
-        

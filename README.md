@@ -1,6 +1,6 @@
 # 🤖 UNAHUR Discord Bot
 
-Bot de administración para el servidor comunitario de estudiantes de la **Universidad Nacional de Hurlingham (UNAHUR)**. Automatiza la creación y limpieza de roles, categorías, canales, avisos fijados y métricas a partir de archivos de texto simples (`MATERIAS.txt` y `TAGS_OPINIONES.txt`).
+Bot de administración para el servidor comunitario de estudiantes de la **Universidad Nacional de Hurlingham (UNAHUR)**. Automatiza la creación y limpieza de roles, categorías, canales, avisos fijados y métricas a partir de archivos de texto simples (`MATERIAS.txt` y `TAGS_OPINIONS.txt`).
 
 ---
 
@@ -12,7 +12,7 @@ Bot de administración para el servidor comunitario de estudiantes de la **Unive
   - `#apuntes-<materia>`: Canal de solo lectura para material de estudio y resúmenes.
 - **Avisos fijados:** Publica y fija la guía estándar en cada canal de apuntes (sin duplicar si ya existe) y permite borrarlos junto con las notificaciones de sistema de Discord.
 - **Tablero de métricas:** Mantiene un mensaje fijado en el canal configurado en `METRICS_CHANNEL_ID` con el conteo de inscriptos por carrera y materia. Se actualiza automáticamente (agrupando cambios cada 30 segundos) o de forma manual.
-- **Opiniones anónimas (`/opinar_comision`):** Flujo guiado con selección de etiquetas (Carrera y Año desde `TAGS_OPINIONES.txt`) y formulario emergente. Publica en el Foro agrupando las reseñas bajo un mismo post por materia y guarda un registro privado para moderación.
+- **Opiniones anónimas (`/opinar_comision`):** Flujo guiado con selección de etiquetas (Carrera y Año desde `TAGS_OPINIONS.txt`) y formulario emergente. Publica en el Foro agrupando las reseñas bajo un mismo post por materia y guarda un registro privado para moderación.
 
 ---
 
@@ -36,7 +36,7 @@ unibot/
 ├── .env.example          # Plantilla de configuración
 ├── Dockerfile
 ├── MATERIAS.txt          # Listado de materias (una por línea)
-├── TAGS_OPINIONES.txt    # Etiquetas [CARRERAS] y [ANIOS] para opiniones
+├── TAGS_OPINIONS.txt    # Etiquetas [CARRERAS] y [ANIOS] para opiniones
 ├── main.py               # Entrada principal, eventos y slash commands
 ├── pyproject.toml        # Configuración de pytest
 ├── requirements.txt
@@ -87,10 +87,10 @@ Todos los comandos se usan con `/` dentro del servidor. Salvo `/opinar_comision`
 
 ## 📋 Flujo recomendado para materias nuevas
 
-1. Agregar las materias en `MATERIAS.txt` (una por línea)[cite: 2].
-2. Ejecutar `/crear_roles_materias`[cite: 2].
-3. Ejecutar `/crear_canales`[cite: 2].
-4. Ejecutar `/aviso_apuntes`[cite: 2].
+1. Agregar las materias en `MATERIAS.txt` (una por línea).
+2. Ejecutar `/crear_roles_materias`.
+3. Ejecutar `/crear_canales`.
+4. Ejecutar `/aviso_apuntes`.
 5. Ejecutar `/actualizar_metricas` (o esperar la actualización automática).
 
 > **Importante:** En *Ajustes del Servidor → Roles*, el rol del bot debe estar **por encima** de los roles de materias y tener permisos para gestionar roles, canales y mensajes. Además, debe tener activado el **Server Members Intent** en el Discord Developer Portal.

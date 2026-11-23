@@ -435,7 +435,7 @@ class OpinionModal(discord.ui.Modal, title="Opinión anónima de cátedra"):
 
 
 class OpinionTagsView(_AuthorOnlyView):
-    """Initial view forcing selection of Career and Year tags from TAGS_OPINIONES.txt."""
+    """Initial view forcing selection of Career and Year tags from TAGS_OPINIONS.txt."""
 
     def __init__(
         self,
@@ -449,12 +449,12 @@ class OpinionTagsView(_AuthorOnlyView):
         carreras, anios = load_opinion_tags(tags_file)
         if not carreras or not anios:
             raise ValueError(
-                "El archivo `TAGS_OPINIONES.txt` debe tener al"
+                "El archivo `TAGS_OPINIONS.txt` debe tener al"
                 " menos una opción en `[CARRERAS]` y `[ANIOS]`."
             )
         if len(carreras) > MAX_SELECT_OPTIONS or len(anios) > MAX_SELECT_OPTIONS:
             logger.warning(
-                "TAGS_OPINIONES.txt tiene más de %d opciones; se ignoran las sobrantes.",
+                "TAGS_OPINIONS.txt tiene más de %d opciones; se ignoran las sobrantes.",
                 MAX_SELECT_OPTIONS,
             )
 

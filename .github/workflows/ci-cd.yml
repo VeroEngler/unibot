@@ -47,6 +47,11 @@ jobs:
 #          key: ${{ secrets.DEPLOY_SSH_KEY }}
 #          script: |
 #            cd ~/unibot
+#            OLD_HEAD=$(git rev-parse HEAD)
 #            git pull origin main
-#            docker compose up -d --build
+#            if git diff --name-only "OLD_HEAD" HEAD | grep -qx "main.py"; then
+#              SYNC_COMMANDS=1 docker compose up -d --build
+#            else 
+#              docker compose up -d --build
+#            fi                          
 #            docker image prune -f

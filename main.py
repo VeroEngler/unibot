@@ -146,7 +146,8 @@ async def _run_slash_guild_task(
     try:
         result = await task(interaction.guild)
     except FileNotFoundError:
-        logger.exception("Archivo de configuración faltante en /%s", interaction.command.name if interaction.command else "?")
+        logger.exception("Archivo de configuración faltante en /%s",
+                         interaction.command.name if interaction.command else "?")
         await interaction.followup.send(
             "Falta un archivo de configuración (por ejemplo, `MATERIAS.txt`). Avisá a moderación.",
             ephemeral=ephemeral,
