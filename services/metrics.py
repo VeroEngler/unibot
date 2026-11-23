@@ -1,16 +1,22 @@
 """Metrics board creation and live update service for the UNAHUR Discord bot."""
 
+import logging
 import os
 from pathlib import Path
+
+
 import discord
 
+
 from .utils import DEFAULT_SUBJECTS_PATH, load_subjects, normalize_text
+
+logger = logging.getLogger("unibot")
 
 METRICS_CHANNEL_NAME: str = "📊・metricas"
 
 
-def _parse_role_id(env_var: str) -> int | None:
-    """Safely parse a Discord role ID from an environment variable."""
+def _parse_snowflake_id(env_var: str) -> int | None:
+    """Safely parse a Discord snowflake ID (channel or role) from an environment variable."""
     raw_value = os.getenv(env_var, "").strip()
     return int(raw_value) if raw_value.isdigit() else None
 
@@ -18,10 +24,10 @@ def _parse_role_id(env_var: str) -> int | None:
 def _get_career_roles() -> list[tuple[str, int | None]]:
     """Return career display labels paired with their configured role IDs."""
     return [
-        ("🖥️ Informática", _parse_role_id("ROLE_CAREER_INFORMATICA_ID")),
-        ("🎮 Videojuegos", _parse_role_id("ROLE_CAREER_VIDEOJUEGOS_ID")),
-        ("🌐 Ciberseguridad", _parse_role_id("ROLE_CAREER_CIBER_ID")),
-        ("🤖 Inteligencia Artificial", _parse_role_id("ROLE_CAREER_IA_ID")),
+        ("🖥️ Informática", _parse_snowflake_id("ROLE_CAREER_INFORMATICA_ID")),
+        ("🎮 Videojuegos", _parse_snowflake_id("ROLE_CAREER_VIDEOJUEGOS_ID")),
+        ("🌐 Ciberseguridad", _parse_snowflake_id("ROLE_CAREER_CIBER_ID")),
+        ("🤖 Inteligencia Artificial", _parse_snowflake_id("ROLE_CAREER_IA_ID")),
     ]
 
 
@@ -102,7 +108,17 @@ def _build_metrics_embed(
 
 
 async def _get_or_create_metrics_channel(guild: discord.Guild) -> discord.TextChannel:
-    """Return the existing metrics channel or create a private read-only one for moderators."""
+    """Resolve the metrics channel via METRICS_CHANNEL_ID, falling back to name or creation."""
+    channel_id = _parse_snowflake_id("METRICS_CHANNEL_ID")
+    if channel_id is not None:
+        existing_by_id = guild.get_channel(channel_id)
+        if isinstance(existing_by_id, discord.TextChannel):
+            return existing_by_id
+        logger.warning(
+            "METRICS_CHANNEL_ID (%s) no corresponde a un canal de texto válido; buscando por nombre.",
+            channel_id,
+        )
+
     for channel in guild.text_channels:
         if channel.name == METRICS_CHANNEL_NAME:
             return channel
@@ -122,7 +138,7 @@ async def _get_or_create_metrics_channel(guild: discord.Guild) -> discord.TextCh
         ),
     }
 
-    mod_role_id = _parse_role_id("ROLE_MODERADOR_ID")
+    mod_role_id = _parse_snowflake_id("ROLE_MODERADOR_ID")
     if mod_role_id is not None:
         mod_role = guild.get_role(mod_role_id)
         if mod_role is not None:
@@ -133,11 +149,17 @@ async def _get_or_create_metrics_channel(guild: discord.Guild) -> discord.TextCh
                 read_message_history=True,
             )
 
-    return await guild.create_text_channel(
+    created = await guild.create_text_channel(
         name=METRICS_CHANNEL_NAME,
         overwrites=overwrites,
         reason="Creación automática del canal privado de métricas",
     )
+    logger.info(
+        "Canal de métricas creado (%s | ID: %s). Guardalo en METRICS_CHANNEL_ID.",
+        created.name,
+        created.id,
+    )
+    return created
 
 
 async def update_metrics_board(
