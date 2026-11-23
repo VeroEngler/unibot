@@ -1,22 +1,54 @@
+import logging
 from collections.abc import Awaitable, Callable
+
 import discord
 
+logger = logging.getLogger("unibot")
+
 DISCORD_MESSAGE_CHUNK_SIZE: int = 1900
+GENERIC_ERROR_MESSAGE = "Ocurrió un error inesperado. Avisá a moderación si se repite."
+
+# Single source of truth for response visibility. Used by every admin command and
+# confirmation prompt so results are consistently private to whoever ran the command.
+DEFAULT_EPHEMERAL: bool = True
 
 # ------------ Helper Functions -------------
 
-# Split long responses into Discord-safe character chunks
+
+def split_text(text: str, limit: int = DISCORD_MESSAGE_CHUNK_SIZE) -> list[str]:
+    """Split text into chunks of at most `limit` characters, preferring line breaks."""
+    chunks: list[str] = []
+    current = ""
+
+    for line in text.splitlines(keepends=True):
+        # A single line longer than the limit has to be cut.
+        while len(line) > limit:
+            if current:
+                chunks.append(current)
+                current = ""
+            chunks.append(line[:limit])
+            line = line[limit:]
+
+        if len(current) + len(line) > limit:
+            chunks.append(current)
+            current = ""
+        current += line
+
+    if current:
+        chunks.append(current)
+
+    # Discord rejects empty / whitespace-only messages.
+    return [chunk for chunk in chunks if chunk.strip()]
 
 
 async def send_followup_chunks(
     interaction: discord.Interaction,
     text: str,
-    ephemeral: bool = True,
+    ephemeral: bool = DEFAULT_EPHEMERAL,
 ) -> None:
-    # Split long responses to comply with Discord's 2000-character limit.
+    """Send a long response as several followups, respecting Discord's 2000-char limit."""
     output = text if text and text.strip() else "No se realizaron cambios."
-    for start in range(0, len(output), DISCORD_MESSAGE_CHUNK_SIZE):
-        chunk = output[start:start + DISCORD_MESSAGE_CHUNK_SIZE]
+    for chunk in split_text(output):
         await interaction.followup.send(chunk, ephemeral=ephemeral)
 
 
@@ -34,15 +66,25 @@ class ConfirmActionView(discord.ui.View):
         author_id: int,
         task: Callable[[], Awaitable[str]],
         forbidden_message: str = "No tengo permisos suficientes para completar la operación.",
-        ephemeral: bool = True,
+        ephemeral: bool = DEFAULT_EPHEMERAL,
         timeout: float = 30.0,
+        confirm_label: str = "Confirmar",
+        cancel_label: str = "Cancelar",
+        progress_message: str = "Ejecutando la operación, por favor esperá...",
+        cancel_message: str = "Operación cancelada. No se realizaron cambios.",
     ) -> None:
         super().__init__(timeout=timeout)
         self.author_id = author_id
         self.task = task
         self.forbidden_message = forbidden_message
         self.ephemeral = ephemeral
+        self.progress_message = progress_message
+        self.cancel_message = cancel_message
         self.message: discord.InteractionMessage | None = None
+
+        # Button labels are set here so the view can be reused for any action.
+        self.confirm.label = confirm_label
+        self.cancel.label = cancel_label
 
     # Ensure only the command author can click the buttons
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
@@ -61,7 +103,7 @@ class ConfirmActionView(discord.ui.View):
                 child.disabled = True
 
     # Confirm button handler
-    @discord.ui.button(label="Confirmar borrado", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="Confirmar", style=discord.ButtonStyle.danger)
     async def confirm(
         self,
         interaction: discord.Interaction,
@@ -69,23 +111,40 @@ class ConfirmActionView(discord.ui.View):
     ) -> None:
         self._disable_buttons()
         await interaction.response.edit_message(
-            content="Ejecutando borrado, por favor esperá...",
+            content=self.progress_message,
             view=self,
         )
+        # Stop the view *before* running the task. Otherwise, if the task takes longer
+        # than the view timeout, on_timeout would fire and overwrite the message with
+        # "Operación cancelada" while the task is still running.
+        self.stop()
 
         try:
             result = await self.task()
-        except FileNotFoundError as exc:
-            await interaction.followup.send(f"Error: {exc}", ephemeral=self.ephemeral)
-            self.stop()
+        except FileNotFoundError:
+            logger.exception("Archivo de configuración faltante durante una confirmación")
+            await interaction.followup.send(
+                "Falta un archivo de configuración (por ejemplo, `MATERIAS.txt`). "
+                "Avisá a moderación.",
+                ephemeral=self.ephemeral,
+            )
             return
         except discord.Forbidden:
             await interaction.followup.send(self.forbidden_message, ephemeral=self.ephemeral)
-            self.stop()
+            return
+        except discord.HTTPException:
+            logger.exception("Error HTTP de Discord durante una confirmación")
+            await interaction.followup.send(
+                "Discord devolvió un error. Intentá de nuevo en unos minutos.",
+                ephemeral=self.ephemeral,
+            )
+            return
+        except Exception:
+            logger.exception("Error inesperado durante una confirmación")
+            await interaction.followup.send(GENERIC_ERROR_MESSAGE, ephemeral=self.ephemeral)
             return
 
         await send_followup_chunks(interaction, result, ephemeral=self.ephemeral)
-        self.stop()
 
     # Cancel button handler
     @discord.ui.button(label="Cancelar", style=discord.ButtonStyle.secondary)
@@ -96,7 +155,7 @@ class ConfirmActionView(discord.ui.View):
     ) -> None:
         self._disable_buttons()
         await interaction.response.edit_message(
-            content="Operación cancelada. No se borró nada.",
+            content=self.cancel_message,
             view=self,
         )
         self.stop()
@@ -110,12 +169,10 @@ class ConfirmActionView(discord.ui.View):
                     view=self,
                 )
             except discord.HTTPException:
-                pass
+                logger.warning("No se pudo editar el mensaje de confirmación tras el timeout")
 
 
 # ------------- Confirmation Entrypoint -------------
-
-# Validate guild context and display the confirmation prompt
 
 
 async def ask_confirmation_and_run(
@@ -123,7 +180,10 @@ async def ask_confirmation_and_run(
     prompt_message: str,
     task: Callable[[], Awaitable[str]],
     forbidden_message: str = "No tengo permisos suficientes para completar la operación.",
-    ephemeral: bool = True,
+    ephemeral: bool = DEFAULT_EPHEMERAL,
+    confirm_label: str = "Confirmar",
+    progress_message: str = "Ejecutando la operación, por favor esperá...",
+    cancel_message: str = "Operación cancelada. No se realizaron cambios.",
 ) -> None:
     """Validate guild context and prompt for confirmation before running a task."""
     if interaction.guild is None:
@@ -138,6 +198,9 @@ async def ask_confirmation_and_run(
         task=task,
         forbidden_message=forbidden_message,
         ephemeral=ephemeral,
+        confirm_label=confirm_label,
+        progress_message=progress_message,
+        cancel_message=cancel_message,
     )
     await interaction.response.send_message(
         content=prompt_message,
