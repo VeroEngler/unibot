@@ -235,7 +235,8 @@ class OpinionConfirmView(_AuthorOnlyView):
             inline=False,
         )
         try:
-            await logs_channel.send(embed=log_embed, allowed_mentions=discord.AllowedMentions.none())
+            await logs_channel.send(embed=log_embed,
+                                    allowed_mentions=discord.AllowedMentions.none())
         except discord.HTTPException:
             logger.exception("No se pudo enviar el registro de opinión al canal de logs")
 

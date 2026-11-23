@@ -115,7 +115,8 @@ async def _get_or_create_metrics_channel(guild: discord.Guild) -> discord.TextCh
         if isinstance(existing_by_id, discord.TextChannel):
             return existing_by_id
         logger.warning(
-            "METRICS_CHANNEL_ID (%s) no corresponde a un canal de texto válido; buscando por nombre.",
+            "METRICS_CHANNEL_ID (%s) no corresponde a un canal de texto válido;"
+            " buscando por nombre.",
             channel_id,
         )
 
