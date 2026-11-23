@@ -41,7 +41,7 @@ unibot/
 ├── pyproject.toml        # Configuración de pytest
 ├── requirements.txt
 └── ui.py                 # Vistas interactivas, confirmaciones y paginado
-
+```
 
 
 ## ⚙️ Variables de entorno (`.env`)
