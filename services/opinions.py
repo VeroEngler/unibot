@@ -8,7 +8,9 @@ import discord
 from .utils import (
     DEFAULT_OPINION_TAGS_PATH,
     load_opinion_tags,
+    load_subjects,
     normalize_text,
+    search_subjects,
 )
 
 logger = logging.getLogger("unibot")
@@ -23,6 +25,7 @@ MENSAJE_CONFIRMACION_ANONIMA: str = (
 GENERIC_ERROR_MESSAGE = "Ocurrió un error inesperado. Avisá a moderación si se repite."
 MAX_FORUM_TAGS_PER_THREAD = 5
 MAX_SELECT_OPTIONS = 25
+MIN_SEARCH_CHARS = 4
 
 # Serializes "find thread -> create/append" so two simultaneous reviews of the same
 # subject don't end up creating duplicate forum posts.
@@ -36,12 +39,6 @@ def _parse_channel_id(env_var: str) -> int | None:
     """Parse a positive integer channel ID from an environment variable."""
     raw = os.getenv(env_var, "").strip()
     return int(raw) if raw.isdigit() else None
-
-
-def _capitalize_first(text: str) -> str:
-    """Capitalize only the first character while preserving remaining casing."""
-    cleaned = text.strip()
-    return f"{cleaned[0].upper()}{cleaned[1:]}" if cleaned else ""
 
 
 def _build_public_message(comision: str, profesor: str, opinion: str) -> str:
@@ -123,7 +120,7 @@ class _AuthorOnlyView(discord.ui.View):
         await _send_generic_error(interaction)
 
 
-# ------------- Step 3: Confirmation View -------------
+# ------------- Step 4: Confirmation View -------------
 
 
 class OpinionConfirmView(_AuthorOnlyView):
@@ -343,40 +340,36 @@ class OpinionConfirmView(_AuthorOnlyView):
         self.stop()
 
 
-# ------------- Step 2: Review Input Modal -------------
+# ------------- Step 3: Review Input Modal -------------
 
 
 class OpinionModal(discord.ui.Modal, title="Opinión anónima de cátedra"):
-    materia = discord.ui.TextInput(
-        label="Materia",
-        placeholder="Ej: Redes de Computadoras",
-        max_length=100,
-        required=True,
-    )
     comision = discord.ui.TextInput(
         label="Comisión / Horario",
         placeholder="Ej: Miércoles Noche - Virtual",
-        max_length=150,
+        max_length=50,
         required=True,
     )
     profesor = discord.ui.TextInput(
         label="Profesor/a",
         placeholder="Ej: Xoana Prior (2C 2026)",
-        max_length=150,
+        max_length=50,
         required=True,
     )
     opinion = discord.ui.TextInput(
         label="Opinión",
         style=discord.TextStyle.paragraph,
         placeholder="Contá cómo explica, cómo son los parciales/TPs, consejos, etc.",
-        max_length=1600,
+        max_length=1890,
         required=True,
     )
 
-    def __init__(self, carrera_tag_name: str, anio_tag_name: str) -> None:
-        super().__init__()
+    def __init__(self, carrera_tag_name: str, anio_tag_name: str, titulo_materia: str) -> None:
+        # Discord limits modal titles to 45 characters.
+        super().__init__(title=f"Opinión: {titulo_materia}"[:45])
         self.carrera_tag_name = carrera_tag_name
         self.anio_tag_name = anio_tag_name
+        self.titulo_materia = titulo_materia
 
     async def on_submit(self, interaction: discord.Interaction) -> None:
         if interaction.guild is None:
@@ -386,13 +379,13 @@ class OpinionModal(discord.ui.Modal, title="Opinión anónima de cátedra"):
             )
             return
 
-        titulo_materia = _capitalize_first(self.materia.value)
+        titulo_materia = self.titulo_materia  # already comes from MATERIAS.txt
         comision_txt = self.comision.value.strip()
         profesor_txt = self.profesor.value.strip()
         opinion_txt = self.opinion.value.strip()
 
         # `required=True` still lets whitespace-only values through.
-        if not all((titulo_materia, comision_txt, profesor_txt, opinion_txt)):
+        if not all((comision_txt, profesor_txt, opinion_txt)):
             await interaction.response.send_message(
                 "⚠️ Todos los campos son obligatorios y no pueden quedar vacíos. "
                 "Volvé a usar `/opinar_comision`.",
@@ -429,6 +422,116 @@ class OpinionModal(discord.ui.Modal, title="Opinión anónima de cátedra"):
 
     async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
         logger.error("Error en el formulario de opinión", exc_info=error)
+        await _send_generic_error(interaction)
+
+
+# ------------- Step 2: Subject search -------------
+
+
+class MateriaSelectView(_AuthorOnlyView):
+    """Dropdown with the subjects that matched the search."""
+
+    timeout_message = "⌛ Se agotó el tiempo. Volvé a usar `/opinar_comision`."
+
+    def __init__(
+        self,
+        author_id: int,
+        carrera_tag_name: str,
+        anio_tag_name: str,
+        matches: list[str],
+    ) -> None:
+        super().__init__(author_id, timeout=180.0)
+        self.carrera_tag_name = carrera_tag_name
+        self.anio_tag_name = anio_tag_name
+        self.matches = matches[:MAX_SELECT_OPTIONS]
+
+        select = discord.ui.Select(
+            placeholder="Elegí la materia",
+            min_values=1,
+            max_values=1,
+            options=[
+                # value = index, so labels longer than 100 chars can't break the lookup
+                discord.SelectOption(label=name[:100], value=str(i))
+                for i, name in enumerate(self.matches)
+            ],
+        )
+        select.callback = self._on_select
+        self.add_item(select)
+
+    async def _on_select(self, interaction: discord.Interaction) -> None:
+        select = self.children[0]
+        materia = self.matches[int(select.values[0])]
+        await interaction.response.send_modal(
+            OpinionModal(
+                carrera_tag_name=self.carrera_tag_name,
+                anio_tag_name=self.anio_tag_name,
+                titulo_materia=materia,
+            )
+        )
+
+
+class MateriaSearchModal(discord.ui.Modal, title="Buscar materia"):
+    query = discord.ui.TextInput(
+        label="Nombre de la materia (mín. 4 caracteres)",
+        placeholder="Ej: Matematica para Informatica 1",
+        min_length=MIN_SEARCH_CHARS,
+        max_length=80,
+        required=True,
+    )
+
+    def __init__(self, author_id: int, carrera_tag_name: str, anio_tag_name: str) -> None:
+        super().__init__()
+        self.author_id = author_id
+        self.carrera_tag_name = carrera_tag_name
+        self.anio_tag_name = anio_tag_name
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        text = self.query.value.strip()
+        if len(text) < MIN_SEARCH_CHARS:
+            await interaction.response.send_message(
+                f"⚠️ Escribí al menos {MIN_SEARCH_CHARS} caracteres para buscar.",
+                ephemeral=True,
+            )
+            return
+
+        try:
+            subjects = load_subjects()
+        except OSError:  # FileNotFoundError is a subclass of OSError
+            logger.exception("No se pudo leer MATERIAS.txt")
+            await interaction.response.send_message(
+                "No pude cargar la lista de materias. Avisá a moderación.",
+                ephemeral=True,
+            )
+            return
+
+        matches = search_subjects(subjects, text)
+        if not matches:
+            await interaction.response.send_message(
+                f"No encontré materias que coincidan con **{text}**. "
+                "Probá con otras palabras y volvé a apretar **Buscar materia**.",
+                ephemeral=True,
+            )
+            return
+
+        note = ""
+        if len(matches) > MAX_SELECT_OPTIONS:
+            note = (
+                f"\nHay {len(matches)} coincidencias, muestro las primeras "
+                f"{MAX_SELECT_OPTIONS}. Si no está la tuya, afiná la búsqueda."
+            )
+
+        view = MateriaSelectView(
+            self.author_id, self.carrera_tag_name, self.anio_tag_name, matches
+        )
+        await interaction.response.send_message(
+            content=f"🔎 Resultados para **{text}**:{note}",
+            view=view,
+            ephemeral=True,
+        )
+        view.message = await interaction.original_response()
+
+    async def on_error(self, interaction: discord.Interaction, error: Exception) -> None:
+        logger.error("Error en la búsqueda de materia", exc_info=error)
         await _send_generic_error(interaction)
 
 
@@ -501,7 +604,7 @@ class OpinionTagsView(_AuthorOnlyView):
         await interaction.response.edit_message(view=self)
 
     @discord.ui.button(
-        label="Escribir opinión",
+        label="Buscar materia",
         style=discord.ButtonStyle.primary,
         row=2,
     )
@@ -518,7 +621,8 @@ class OpinionTagsView(_AuthorOnlyView):
             return
 
         await interaction.response.send_modal(
-            OpinionModal(
+            MateriaSearchModal(
+                author_id=self.author_id,
                 carrera_tag_name=self.selected_carrera,
                 anio_tag_name=self.selected_anio,
             )

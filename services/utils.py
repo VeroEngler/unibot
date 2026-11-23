@@ -44,6 +44,37 @@ def load_subjects(file_path: str | Path = DEFAULT_SUBJECTS_PATH) -> list[str]:
     return subjects
 
 
+# --------- Subject search ---------
+
+_ARABIC_TO_ROMAN = {
+    "1": "i", "2": "ii", "3": "iii", "4": "iv", "5": "v",
+}
+_ROMAN_TOKENS = frozenset(_ARABIC_TO_ROMAN.values())
+
+
+def _search_tokens(text: str) -> list[str]:
+    """Normalize text and convert arabic numerals to roman so '1' matches 'I'."""
+    return [_ARABIC_TO_ROMAN.get(t, t) for t in normalize_text(text).split()]
+
+
+def search_subjects(subjects: list[str], query: str) -> list[str]:
+    """Subjects where every query token matches (roman numerals must match exactly)."""
+    query_tokens = _search_tokens(query)
+    if not query_tokens:
+        return []
+
+    results: list[str] = []
+    for name in subjects:
+        name_tokens = _search_tokens(name)
+        name_joined = " ".join(name_tokens)
+        if all(
+            (tok in name_tokens) if tok in _ROMAN_TOKENS else (tok in name_joined)
+            for tok in query_tokens
+        ):
+            results.append(name)
+    return results
+
+
 # --------- Opinions Tags ---------
 
 

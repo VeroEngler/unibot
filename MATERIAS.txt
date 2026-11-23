@@ -7,7 +7,7 @@ Arquitectura de Computadoras
 Algoritmos
 Arquitectura de Software I
 Arquitectura de Software II
-Base de Datos
+Bases de Datos
 Cálculo
 Ciberdefensa y ciberinteligencia
 Cibercrimen y análisis forense
