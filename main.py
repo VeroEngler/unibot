@@ -1,53 +1,118 @@
-import os
-import time
+import asyncio
 import logging
+import os
 from collections.abc import Awaitable, Callable
 
 import discord
 from discord import app_commands
-
 from dotenv import load_dotenv
 
 from services import (
+    OpinionTagsView,
     create_subject_channels,
-    delete_subject_channels,
     create_subject_roles,
+    delete_notes_notices,
+    delete_subject_channels,
     delete_subject_roles,
     send_notes_notices,
-    delete_notes_notices,
     update_metrics_board,
-    OpinionTagsView,
 )
-
-from ui import ask_confirmation_and_run, send_followup_chunks
+from ui import DEFAULT_EPHEMERAL, ask_confirmation_and_run, send_followup_chunks
 
 load_dotenv()
 
-# Loging configuration
+# Logging configuration
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
 logger = logging.getLogger("unibot")
 
-# Track last automatic metrics refresh per guild to prevent rate-limit bursts
-METRICS_UPDATE_COOLDOWN_SECONDS: float = 30.0
-_last_metrics_update: dict[int, float] = {}
+# ------------ Constants -------------
 
-intents = discord.Intents.default()
-intents.guilds = True
-intents.members = True
+# Delay before an automatic metrics refresh runs after a role change.
+# Multiple role changes within this window are collapsed into a single refresh.
+METRICS_UPDATE_DELAY_SECONDS: float = 30.0
+
+GENERIC_ERROR_MESSAGE = "Ocurrió un error inesperado. Avisá a moderación si se repite."
+
+
+def _parse_int_env(name: str) -> int | None:
+    """Read an optional integer environment variable."""
+    value = os.getenv(name)
+    if not value:
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        logger.warning("La variable %s no es un entero válido: %r", name, value)
+        return None
+
+
+# Optional: if set, commands are synced only to this guild (instant, ideal for development).
+TEST_GUILD_ID: int | None = _parse_int_env("TEST_GUILD_ID")
+# Global sync is only performed when explicitly requested (SYNC_COMMANDS=1).
+SYNC_COMMANDS: bool = os.getenv("SYNC_COMMANDS", "0") == "1"
 
 
 class UnahurBot(discord.Client):
-    """Discord bot client with automatic slash command synchronization."""
+    """Discord bot client with controlled slash command synchronization."""
 
     def __init__(self) -> None:
+        # Default intents already include `guilds`.
+        # `members` is privileged: it must be enabled in the Developer Portal.
+        intents = discord.Intents.default()
+        intents.members = True
         super().__init__(intents=intents)
+
         self.tree = app_commands.CommandTree(self)
+        # Pending (deferred) metrics refreshes, one per guild.
+        self._pending_metrics_updates: dict[int, asyncio.Task[None]] = {}
 
     async def setup_hook(self) -> None:
-        await self.tree.sync()
+        if TEST_GUILD_ID is not None:
+            guild = discord.Object(id=TEST_GUILD_ID)
+            self.tree.copy_global_to(guild=guild)
+            await self.tree.sync(guild=guild)
+            logger.info("Comandos sincronizados en el servidor de pruebas %s", TEST_GUILD_ID)
+        elif SYNC_COMMANDS:
+            await self.tree.sync()
+            logger.info("Comandos sincronizados globalmente")
+        else:
+            logger.info("Sincronización de comandos omitida (usar SYNC_COMMANDS=1 para forzarla)")
+
+    async def close(self) -> None:
+        for task in self._pending_metrics_updates.values():
+            task.cancel()
+        self._pending_metrics_updates.clear()
+        await super().close()
+
+    # ---- Deferred metrics refresh ----
+
+    def schedule_metrics_update(self, guild: discord.Guild) -> None:
+        """Schedule a metrics refresh for the guild unless one is already pending.
+
+        The refresh runs after a delay and reads the guild state at that moment,
+        so it always reflects the most recent changes.
+        """
+        if guild.id in self._pending_metrics_updates:
+            return
+        self._pending_metrics_updates[guild.id] = asyncio.create_task(
+            self._delayed_metrics_update(guild)
+        )
+
+    async def _delayed_metrics_update(self, guild: discord.Guild) -> None:
+        try:
+            await asyncio.sleep(METRICS_UPDATE_DELAY_SECONDS)
+            await update_metrics_board(guild=guild, bot_user=self.user)
+        except asyncio.CancelledError:
+            raise
+        except (FileNotFoundError, discord.Forbidden):
+            logger.warning("No se pudo actualizar el tablero de métricas en %s", guild.id)
+        except Exception:
+            logger.exception("Error inesperado actualizando métricas en %s", guild.id)
+        finally:
+            self._pending_metrics_updates.pop(guild.id, None)
 
 
 bot = UnahurBot()
@@ -55,13 +120,20 @@ bot = UnahurBot()
 # ------------ Helper Functions -------------
 
 
+def _get_guild(interaction: discord.Interaction) -> discord.Guild:
+    """Return the interaction guild or raise if the command was used outside a server."""
+    if interaction.guild is None:
+        raise app_commands.NoPrivateMessage()
+    return interaction.guild
+
+
 async def _run_slash_guild_task(
     interaction: discord.Interaction,
-    task: Callable[[], Awaitable[str]],
+    task: Callable[[discord.Guild], Awaitable[str]],
     forbidden_message: str = "No tengo permisos suficientes para completar la operación.",
-    ephemeral: bool = False,
+    ephemeral: bool = DEFAULT_EPHEMERAL,
 ) -> None:
-    """Validate guild context, defer interaction response, and execute an async task."""
+    """Validate guild context, defer the response, and execute an async task."""
     if interaction.guild is None:
         await interaction.response.send_message(
             "Este comando solo funciona dentro de un servidor.",
@@ -72,12 +144,27 @@ async def _run_slash_guild_task(
     await interaction.response.defer(ephemeral=ephemeral)
 
     try:
-        result = await task()
-    except FileNotFoundError as exc:
-        await interaction.followup.send(f"Error: {exc}", ephemeral=ephemeral)
+        result = await task(interaction.guild)
+    except FileNotFoundError:
+        logger.exception("Archivo de configuración faltante en /%s", interaction.command.name if interaction.command else "?")
+        await interaction.followup.send(
+            "Falta un archivo de configuración (por ejemplo, `MATERIAS.txt`). Avisá a moderación.",
+            ephemeral=ephemeral,
+        )
         return
     except discord.Forbidden:
         await interaction.followup.send(forbidden_message, ephemeral=ephemeral)
+        return
+    except discord.HTTPException:
+        logger.exception("Error HTTP de Discord")
+        await interaction.followup.send(
+            "Discord devolvió un error. Intentá de nuevo en unos minutos.",
+            ephemeral=ephemeral,
+        )
+        return
+    except Exception:
+        logger.exception("Error inesperado ejecutando un comando")
+        await interaction.followup.send(GENERIC_ERROR_MESSAGE, ephemeral=ephemeral)
         return
 
     await send_followup_chunks(interaction, result, ephemeral=ephemeral)
@@ -98,20 +185,30 @@ async def on_ready() -> None:
 
 @bot.event
 async def on_member_update(before: discord.Member, after: discord.Member) -> None:
-    """Automatically refresh the pinned metrics board when a member's roles change."""
+    """Schedule a refresh of the pinned metrics board when a member's roles change."""
     if before.roles == after.roles:
         return
+    bot.schedule_metrics_update(after.guild)
 
-    guild_id = after.guild.id
-    now = time.monotonic()
-    if now - _last_metrics_update.get(guild_id, 0.0) < METRICS_UPDATE_COOLDOWN_SECONDS:
-        return
 
-    _last_metrics_update[guild_id] = now
-    try:
-        await update_metrics_board(guild=after.guild, bot_user=bot.user)
-    except (FileNotFoundError, discord.Forbidden):
-        pass
+@bot.tree.error
+async def on_app_command_error(
+    interaction: discord.Interaction,
+    error: app_commands.AppCommandError,
+) -> None:
+    """Global fallback handler for slash command errors."""
+    if isinstance(error, app_commands.MissingPermissions):
+        message = "No tenés permisos para usar este comando."
+    elif isinstance(error, app_commands.NoPrivateMessage):
+        message = "Este comando solo funciona dentro de un servidor."
+    else:
+        logger.error("Error en comando de aplicación", exc_info=error)
+        message = GENERIC_ERROR_MESSAGE
+
+    if interaction.response.is_done():
+        await interaction.followup.send(message, ephemeral=True)
+    else:
+        await interaction.response.send_message(message, ephemeral=True)
 
 
 # //////////////// Bot Commands ////////////////
@@ -120,22 +217,19 @@ async def on_member_update(before: discord.Member, after: discord.Member) -> Non
 # ------------- Subject Roles -------------
 
 
-# Command to create subject roles
 @bot.tree.command(
     name="crear_roles_materias",
     description="Lee MATERIAS.txt y crea los roles de las materias.",
 )
 @app_commands.default_permissions(manage_roles=True)
+@app_commands.checks.has_permissions(manage_roles=True)
 @app_commands.guild_only()
 async def create_subjects_slash(interaction: discord.Interaction) -> None:
     await _run_slash_guild_task(
         interaction=interaction,
-        task=lambda: create_subject_roles(interaction.guild, interaction.user),
+        task=lambda guild: create_subject_roles(guild, interaction.user),
         forbidden_message="No tengo permisos suficientes (**Gestionar roles**).",
     )
-
-
-# Command to delete subject roles
 
 
 @bot.tree.command(
@@ -143,15 +237,20 @@ async def create_subjects_slash(interaction: discord.Interaction) -> None:
     description="Lee MATERIAS.txt y elimina los roles de las materias.",
 )
 @app_commands.default_permissions(manage_roles=True)
+@app_commands.checks.has_permissions(manage_roles=True)
 @app_commands.guild_only()
 async def delete_subjects_slash(interaction: discord.Interaction) -> None:
+    guild = _get_guild(interaction)
     await ask_confirmation_and_run(
         interaction=interaction,
         prompt_message=(
             "¿Estás seguro de que querés **eliminar los roles** de las materias "
             "listadas en `MATERIAS.txt`? Esta acción no se puede deshacer."
         ),
-        task=lambda: delete_subject_roles(interaction.guild, interaction.user),
+        task=lambda: delete_subject_roles(guild, interaction.user),
+        confirm_label="Eliminar roles",
+        progress_message="Eliminando roles, por favor esperá...",
+        cancel_message="Operación cancelada. No se eliminó ningún rol.",
         forbidden_message="No tengo permisos suficientes (**Gestionar roles**).",
     )
 
@@ -159,23 +258,22 @@ async def delete_subjects_slash(interaction: discord.Interaction) -> None:
 # ------------- Subject Channels -------------
 
 
-# Command to create subject channels
 @bot.tree.command(
     name="crear_canales",
     description="Lee MATERIAS.txt y configura categorías y canales por materia.",
 )
 @app_commands.default_permissions(manage_channels=True)
+@app_commands.checks.has_permissions(manage_channels=True)
 @app_commands.guild_only()
 async def create_channels_slash(interaction: discord.Interaction) -> None:
     await _run_slash_guild_task(
         interaction=interaction,
-        task=lambda: create_subject_channels(interaction.guild),
-        forbidden_message=("No tengo permisos suficientes"
-                           "(**Gestionar canales** y **Gestionar roles**)."),
+        task=create_subject_channels,
+        forbidden_message=(
+            "No tengo permisos suficientes "
+            "(**Gestionar canales** y **Gestionar roles**)."
+        ),
     )
-
-
-# Command to delete subject channels
 
 
 @bot.tree.command(
@@ -183,15 +281,20 @@ async def create_channels_slash(interaction: discord.Interaction) -> None:
     description="Lee MATERIAS.txt y elimina las categorías y canales de las materias.",
 )
 @app_commands.default_permissions(manage_channels=True)
+@app_commands.checks.has_permissions(manage_channels=True)
 @app_commands.guild_only()
 async def delete_channels_slash(interaction: discord.Interaction) -> None:
+    guild = _get_guild(interaction)
     await ask_confirmation_and_run(
         interaction=interaction,
         prompt_message=(
             "¿Estás seguro de que querés **eliminar los canales** de las materias "
             "listadas en `MATERIAS.txt`? Esta acción no se puede deshacer."
         ),
-        task=lambda: delete_subject_channels(interaction.guild),
+        task=lambda: delete_subject_channels(guild),
+        confirm_label="Eliminar canales",
+        progress_message="Eliminando canales, por favor esperá...",
+        cancel_message="Operación cancelada. No se eliminó ningún canal.",
         forbidden_message="No tengo permisos suficientes (**Gestionar canales**).",
     )
 
@@ -199,13 +302,13 @@ async def delete_channels_slash(interaction: discord.Interaction) -> None:
 # ------------- Subject Notices -------------
 
 
-# Command to send notes notices
 @bot.tree.command(
     name="aviso_apuntes",
     description="Envía y fija el aviso estándar en los canales de apuntes.",
 )
 @app_commands.describe(forzar="Reenviar el aviso aunque ya exista en el canal")
 @app_commands.default_permissions(manage_channels=True)
+@app_commands.checks.has_permissions(manage_channels=True)
 @app_commands.guild_only()
 async def send_notes_notice_slash(
     interaction: discord.Interaction,
@@ -213,8 +316,8 @@ async def send_notes_notice_slash(
 ) -> None:
     await _run_slash_guild_task(
         interaction=interaction,
-        task=lambda: send_notes_notices(
-            guild=interaction.guild,
+        task=lambda guild: send_notes_notices(
+            guild=guild,
             bot_user=bot.user,
             force=forzar,
         ),
@@ -222,16 +325,15 @@ async def send_notes_notice_slash(
     )
 
 
-# Command to delete notes notices
-
-
 @bot.tree.command(
     name="borrar_aviso_apuntes",
     description="Desfija y elimina los avisos de apuntes y sus notificaciones.",
 )
 @app_commands.default_permissions(manage_channels=True)
+@app_commands.checks.has_permissions(manage_channels=True)
 @app_commands.guild_only()
 async def delete_notes_notice_slash(interaction: discord.Interaction) -> None:
+    guild = _get_guild(interaction)
     await ask_confirmation_and_run(
         interaction=interaction,
         prompt_message=(
@@ -239,9 +341,12 @@ async def delete_notes_notice_slash(interaction: discord.Interaction) -> None:
             "en todos los canales listados en `MATERIAS.txt`?"
         ),
         task=lambda: delete_notes_notices(
-            guild=interaction.guild,
+            guild=guild,
             bot_user=bot.user,
         ),
+        confirm_label="Eliminar avisos",
+        progress_message="Eliminando avisos, por favor esperá...",
+        cancel_message="Operación cancelada. No se eliminó ningún aviso.",
         forbidden_message="No tengo permisos suficientes en alguno de los canales.",
     )
 
@@ -250,16 +355,17 @@ async def delete_notes_notice_slash(interaction: discord.Interaction) -> None:
 
 
 @bot.tree.command(
-    name="metrics_update",
-    description="Crea o actualiza el mensaje fijado en #📊・metricas",
+    name="actualizar_metricas",
+    description="Crea o actualiza el mensaje fijado en el canal de métricas.",
 )
 @app_commands.default_permissions(manage_channels=True)
+@app_commands.checks.has_permissions(manage_channels=True)
 @app_commands.guild_only()
 async def update_metrics_slash(interaction: discord.Interaction) -> None:
     await _run_slash_guild_task(
         interaction=interaction,
-        task=lambda: update_metrics_board(
-            guild=interaction.guild,
+        task=lambda guild: update_metrics_board(
+            guild=guild,
             bot_user=bot.user,
         ),
         forbidden_message=(
@@ -280,9 +386,10 @@ async def update_metrics_slash(interaction: discord.Interaction) -> None:
 async def opinion_comision_slash(interaction: discord.Interaction) -> None:
     try:
         view = OpinionTagsView(author_id=interaction.user.id)
-    except (FileNotFoundError, ValueError) as exc:
+    except (FileNotFoundError, ValueError):
+        logger.exception("Error de configuración al crear OpinionTagsView")
         await interaction.response.send_message(
-            f"Error de configuración: {exc}. Avisá a moderación.",
+            "Error de configuración. Avisá a moderación.",
             ephemeral=True,
         )
         return
@@ -292,6 +399,7 @@ async def opinion_comision_slash(interaction: discord.Interaction) -> None:
         view=view,
         ephemeral=True,
     )
+    view.message = await interaction.original_response()
 
 
 # ------------- Token Validation and Startup -------------
