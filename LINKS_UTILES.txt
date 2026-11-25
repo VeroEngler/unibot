@@ -1,0 +1,6 @@
+# Formato: clave | Titulo | Descripcion | Texto del boton | URL
+
+calendario | 📅 Calendario Académico UNAHUR | Consultá las fechas Importantes | Abrir Calendario Académico | https://unahur.edu.ar/calendario-academico/
+plan_estudios | 📚 Planes de Estudio y Carreras | Revisá las materias, correlatividades y programas de cada carrera. | Ver Carreras y Planes | https://informaticaunahur.github.io/carreras/
+siu | 🎓 SIU Guaraní | Gestión de inscripciones, actas, regularidades y certificados de alumno regular. | Ir a SIU Guaraní | https://servicios.unahur.edu.ar/unahur3w/
+campus | 💻 Campus Virtual UNAHUR | Acceso a las aulas virtuales, bibliografía y entregas de trabajos prácticos. | Entrar al Campus | https://campus2026.unahur.edu.ar/login/index.php
