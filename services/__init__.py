@@ -4,6 +4,7 @@ from .channels import create_subject_channels, delete_subject_channels
 from .metrics import update_metrics_board
 from .notices import delete_notes_notices, send_notes_notices
 from .roles import create_subject_roles, delete_subject_roles
+from .links import build_link_response, build_all_links_response
 from .opinions import OpinionTagsView
 
 __all__ = [
@@ -15,5 +16,7 @@ __all__ = [
     "delete_notes_notices",
     "delete_subject_channels",
     "update_metrics_board",
+    "build_link_response",
+    "build_all_links_response",
     "OpinionTagsView",
 ]

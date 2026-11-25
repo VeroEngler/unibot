@@ -6,6 +6,7 @@ import unicodedata
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_SUBJECTS_PATH = ROOT_DIR / "MATERIAS.txt"
 DEFAULT_OPINION_TAGS_PATH = ROOT_DIR / "TAGS_OPINIONS.txt"
+DEFAULT_LINKS_PATH = ROOT_DIR / "LINKS_UTILES.txt"
 
 
 def normalize_channel_name(text: str) -> str:
@@ -114,3 +115,45 @@ def load_opinion_tags(
             years.append(line)
 
     return careers, years
+
+
+# --------- Useful Links ---------
+
+
+DEFAULT_LINKS_PATH = ROOT_DIR / "LINKS_UTILES.txt"
+
+
+def load_useful_links(
+    file_path: str | Path = DEFAULT_LINKS_PATH,
+) -> dict[str, dict[str, str]]:
+    """Read useful student links from LINKS_UTILES.txt."""
+    path = Path(file_path)
+    if not path.exists():
+        raise FileNotFoundError(f"No se encontró el archivo {path.name}")
+
+    links: dict[str, dict[str, str]] = {}
+
+    for line_number, raw_line in enumerate(
+        path.read_text(encoding="utf-8").splitlines(), start=1
+    ):
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+
+        parts = [part.strip() for part in line.split("|")]
+        if len(parts) != 5:
+            raise ValueError(
+                f"Formato inválido en {path.name} (línea {line_number}). "
+                "Se esperaba: clave | titulo | descripcion | boton | url"
+            )
+
+        key, title, description, button_label, url = parts
+        normalized_key = normalize_text(key)
+        links[normalized_key] = {
+            "title": title,
+            "description": description,
+            "button_label": button_label,
+            "url": url,
+        }
+
+    return links
