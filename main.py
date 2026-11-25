@@ -15,9 +15,12 @@ from services import (
     delete_subject_channels,
     delete_subject_roles,
     send_notes_notices,
+    build_link_response,
+    build_all_links_response,
     update_metrics_board,
 )
 from ui import DEFAULT_EPHEMERAL, ask_confirmation_and_run, send_followup_chunks
+from services.utils import load_useful_links
 
 load_dotenv()
 
@@ -403,7 +406,108 @@ async def opinion_comision_slash(interaction: discord.Interaction) -> None:
     view.message = await interaction.original_response()
 
 
+# ------------- Student Utilities Commands -------------
+
+
+async def link_key_autocomplete(
+    interaction: discord.Interaction,
+    current: str,
+) -> list[app_commands.Choice[str]]:
+    """Provide dynamic autocomplete choices from LINKS_UTILES.txt."""
+    try:
+        links = load_useful_links()
+    except (FileNotFoundError, ValueError):
+        return []
+
+    query = current.lower()
+    choices = [
+        app_commands.Choice(name=data["title"], value=key)
+        for key, data in links.items()
+        if query in key.lower() or query in data["title"].lower()
+    ]
+    return choices[:25]
+
+
+@bot.tree.command(
+    name="calendario",
+    description="Muestra el enlace directo al Calendario Académico de UNAHUR.",
+)
+@app_commands.describe(
+    publico="Mostrar el enlace en el canal (por defecto solo lo ves vos)",
+)
+@app_commands.guild_only()
+async def calendar_slash(
+    interaction: discord.Interaction,
+    publico: bool = False,
+) -> None:
+    """Send the academic calendar embed and link button."""
+    try:
+        embed, view = build_link_response("calendario")
+    except (FileNotFoundError, ValueError, KeyError) as exc:
+        await interaction.response.send_message(f"⚠️ {exc}", ephemeral=True)
+        return
+
+    await interaction.response.send_message(
+        embed=embed, view=view, ephemeral=not publico
+    )
+
+
+@bot.tree.command(
+    name="plan_estudios",
+    description="Muestra el enlace a las carreras y planes de estudio.",
+)
+@app_commands.describe(
+    publico="Mostrar el enlace en el canal (por defecto solo lo ves vos)",
+)
+@app_commands.guild_only()
+async def study_plans_slash(
+    interaction: discord.Interaction,
+    publico: bool = False,
+) -> None:
+    """Send the study plans embed and link button."""
+    try:
+        embed, view = build_link_response("plan_estudios")
+    except (FileNotFoundError, ValueError, KeyError) as exc:
+        await interaction.response.send_message(f"⚠️ {exc}", ephemeral=True)
+        return
+
+    await interaction.response.send_message(
+        embed=embed, view=view, ephemeral=not publico
+    )
+
+
+@bot.tree.command(
+    name="links",
+    description="Muestra los enlaces útiles de UNAHUR o busca uno específico.",
+)
+@app_commands.describe(
+    recurso="Elegí un recurso específico (opcional; vacío muestra todos)",
+    publico="Mostrar el enlace en el canal (por defecto solo lo ves vos)",
+)
+@app_commands.autocomplete(recurso=link_key_autocomplete)
+@app_commands.guild_only()
+async def links_slash(
+    interaction: discord.Interaction,
+    recurso: str | None = None,
+    publico: bool = False,
+) -> None:
+    """Send either a requested resource link or all useful links."""
+    try:
+        if recurso:
+            embed, view = build_link_response(recurso)
+        else:
+            embed, view = build_all_links_response()
+    except (FileNotFoundError, ValueError, KeyError) as exc:
+        await interaction.response.send_message(f"⚠️ {exc}", ephemeral=True)
+        return
+
+    await interaction.response.send_message(
+        embed=embed, view=view, ephemeral=not publico
+    )
+
+
 # ------------- Token Validation and Startup -------------
+
 
 if __name__ == "__main__":
     token = os.getenv("DISCORD_TOKEN")
