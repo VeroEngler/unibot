@@ -25,6 +25,7 @@ unibot/
 ├── services/
 │   ├── __init__.py
 │   ├── channels.py       # Categorías y canales por materia
+│   ├── links.py          # Gestión y publicación de enlaces útiles
 │   ├── metrics.py        # Tablero de métricas por carrera y materia
 │   ├── notices.py        # Avisos fijados en canales de apuntes
 │   ├── opinions.py       # Opiniones anónimas y log de moderación
@@ -80,6 +81,9 @@ Todos los comandos se usan con `/` dentro del servidor. Salvo `/opinar_comision`
 
 - **`/actualizar_metricas`** *(Permiso: Gestionar canales)*  
   Crea o actualiza manualmente el mensaje fijado con el conteo de inscriptos en el canal configurado en `METRICS_CHANNEL_ID`.
+
+- **`/links`** *(Disponible para todos)*  
+  Muestra de forma privada o publica enlaces utiles de la universidad, listados en `LINKS_UTILES.txt`.
 
 - **`/opinar_comision`** *(Disponible para todos)*
   Abre un selector de etiquetas (Carrera y Año) y un formulario para publicar una reseña anónima en el Foro, previa confirmación de las reglas de respeto.
